@@ -137,7 +137,7 @@ class ImportCommand(object):
         entry.queued_media_file = media.filename.split("/")
         entry.queued_task_id = task_id
 
-        entry.save(validate=True)
+        entry.save()
 
         process_media = registry.tasks[ProcessMedia.name]
         try:
