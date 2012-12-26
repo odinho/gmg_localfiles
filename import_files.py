@@ -17,20 +17,27 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
+import uuid
 
 # This is here early because of a race
+import mediagoblin
 from mediagoblin.app import MediaGoblinApp
+from mediagoblin import mg_globals
 if __name__ == "__main__":
-    config_file = '/home/odin/src/mediagoblin/mediagoblin.ini'
-    mg = MediaGoblinApp(config_file, setup_celery=True)
-    from mediagoblin import mg_globals
+    mg_dir = os.path.dirname(mediagoblin.__path__[0])
+    if os.path.exists(mg_dir + "/mediagoblin_local.ini"):
+      config_file = mg_dir + "/mediagoblin_local.ini"
+    elif os.path.exists(mg_dir + "/mediagoblin.ini"):
+      config_file = mg_dir + "/mediagoblin.ini"
+    else:
+      raise Exception("Couldn't find mediagoblin.ini")
+
+    mg_app = MediaGoblinApp(config_file, setup_celery=True)
 
     from mediagoblin.init.celery import setup_celery_app
     setup_celery_app(mg_globals.app_config, \
         mg_globals.global_config, force_celery_always_eager=True)
-
-import os
-import uuid
 
 from celery import registry
 
@@ -148,6 +155,7 @@ class ImportCommand(object):
 
 
 if __name__ == "__main__":
-    from mediagoblin import mg_globals
-    ic = ImportCommand(mg.db, mg_globals.global_config['storage:publicstore']['base_dir'])
+    ic = ImportCommand(
+        mg_app.db,
+        mg_globals.global_config['storage:publicstore']['base_dir'])
     ic.handle()

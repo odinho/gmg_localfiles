@@ -17,10 +17,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-import sys
 import logging
 
-from mediagoblin.tools.pluginapi import get_config
 from mediagoblin import processing
 
 _log = logging.getLogger(__name__)
@@ -60,10 +58,6 @@ processing.FilenameBuilder = PreservingFilenameBuilder
 
 def setup_plugin():
     _log.info('LocalFiles plugin set up!')
-    config = get_config('gmg_localfiles')
-    if not config:
-        _log.info('There is no configuration set.')
-        sys.exit(1)
 
 hooks = {
     'setup': setup_plugin
