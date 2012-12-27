@@ -94,7 +94,7 @@ class ImportCommand(object):
             if not new_folder:
                 print u"Skipping folder {0}".format(folder_path).encode("utf-8")
                 continue
-            new_files = [os.path.splitext(i)[0] for i in files]
+            new_files = list(set(os.path.splitext(i)[0] for i in files))
             new_files.sort(reverse=True)
 
             for new_filename in new_files:
@@ -107,21 +107,26 @@ class ImportCommand(object):
 
                 assert len(exts) > 0, "Couldn't find file extension for %s" % file_url
 
-                # If there exists NEF file, prefer that as canonical file
-                if '.nef' in exts and os.path.exists(file_url + '.nef'):
-                    f = file_url + '.nef'
-                elif '.NEF' in exts and os.path.exists(file_url + '.NEF'):
-                    f = file_url + '.NEF'
-                else:
-                    f = file_url + exts[0]
+                filepath = self.raw_alternative(file_url, exts)
 
                 try:
-                    m = MockMedia(filename=f, stream=open(f, "r"))
-                    self.import_file(m)
+                    self.import_file(MockMedia(
+                        filename=filepath, stream=open(filepath, "r")))
                 except Exception as e:
                     print u"file: {0}  exception: {1}".format(f, e).encode('utf-8')
                     continue
 
+
+    def find_file(self, file_base, exts):
+        """
+        Find the raw file if there exist one
+
+        @returns filepath
+        """
+        for ext in ['.nef', '.NEF']:
+            if ext in exts and os.path.exists(file_base + ext):
+                return file_base + ext
+        return file_base + exts[0]
 
     def import_file(self, media):
         try:
