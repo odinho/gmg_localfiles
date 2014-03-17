@@ -1,3 +1,7 @@
+NB! This is **only** compatible with MediaGoblin 0.3.x, which is very old at this point.
+
+I would be happy for help to port it to newer versions.
+
  gmg\_localfiles, plugin for GNU MediaGoblin
 ============================================
 
