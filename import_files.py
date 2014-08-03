@@ -119,6 +119,24 @@ class ImportCommand(object):
                 except Exception as exc:
                     print u"Exception while importing file '{0}': {1}".format(f, exc)
                     continue
+            self.add_to_collection(u'roll:{}'.format(folder_path), added_entries)
+
+    def add_to_collection(self, collection_title, entries):
+        if not entries:
+            return
+        collection = self.db.Collection.query.filter_by(
+                               creator=1,
+                               title=collection_title).first()
+        if not collection:
+            collection = self.db.Collection()
+            collection.title = collection_title
+            collection.creator = 1
+            collection.generate_slug()
+            collection.save()
+            Session.commit()
+        for entry in entries:
+            add_media_to_collection(collection, entry, commit=False)
+        Session.commit()
 
     def raw_alternative(self, file_base, exts):
         """
