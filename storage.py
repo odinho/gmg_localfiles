@@ -77,6 +77,9 @@ class PersistentFileStorage(BasicFileStorage):
         #os.remove(self._resolve_filepath(filepath))
         _log.info(u'Not removing {0} as requested.'.format(self._resolve_filepath(filepath)))
 
+    def delete_dir(self, dirpath, recursive=False):
+        return False
+
     def copy_local_to_storage(self, filename, filepath):
         """
         Copy this file from locally to the storage system.

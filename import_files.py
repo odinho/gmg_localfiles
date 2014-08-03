@@ -39,26 +39,28 @@ if __name__ == "__main__":
     setup_celery_app(mg_globals.app_config, \
         mg_globals.global_config, force_celery_always_eager=True)
 
-from celery import registry
-
-from mediagoblin.tools.text import convert_to_tag_list_of_dicts
-from mediagoblin.storage import clean_listy_filepath
-from mediagoblin.processing import mark_entry_failed
-from mediagoblin.processing.task import ProcessMedia
+from mediagoblin.db.base import Session
 from mediagoblin.media_types import sniff_media, \
     InvalidFileType, FileTypeNotSupported
+from mediagoblin.storage import clean_listy_filepath
+from mediagoblin.submit.lib import run_process_media
+from mediagoblin.tools.text import convert_to_tag_list_of_dicts
+from mediagoblin.user_pages.lib import add_media_to_collection
 
 
 class MockMedia():
     filename = ""
     stream = None
+
     def __init__(self, filename, stream):
         self.filename = filename
         self.stream = stream
 
+    def read(self, *args, **kwargs):
+        return self.stream
+
 
 class ImportCommand(object):
-    #args = '<poll_id poll_id ...>'
     help = 'Find new photos and add to database'
 
     def __init__(self, db, base_dir, **kwargs):
@@ -70,7 +72,7 @@ class ImportCommand(object):
 
         os.chdir(self.base_dir)
 
-        for top, dirs, files in os.walk(u'.'):
+        for top, dirs, files in os.walk('.', followlinks=True):
             # Skip hidden folders
             if '/.' in top:
                 continue
@@ -78,46 +80,47 @@ class ImportCommand(object):
             if '_cache' in top:
                 print "cache skip", top
                 continue
-            if top == ".":
-                top = ""
+            if top == '.':
+                top = u''
 
             #folder, new_folder = Folder.objects.select_related("photos") \
             #        .get_or_create(path=os.path.normpath(top) + "/",
             #                defaults={'name': os.path.basename(top)})
-            folder_path = os.path.normpath(top)
+            folder_path = os.path.normpath(top.decode('utf8'))
             try:
-                cleaned_top = "/".join(clean_listy_filepath(folder_path.split("/")))
+                cleaned_top = u'/'.join(clean_listy_filepath(folder_path.split('/')))
             except Exception:
                 cleaned_top = top
-            new_folder = not os.path.exists(os.path.join("mg_cache", cleaned_top))
+            new_folder = not os.path.exists(os.path.join('mg_cache', cleaned_top))
 
             if not new_folder:
-                print u"Skipping folder {0}".format(folder_path).encode("utf-8")
+                print u"Skipping folder {0}".format(folder_path)
                 continue
             new_files = list(set(os.path.splitext(i)[0] for i in files))
             new_files.sort(reverse=True)
 
+            added_entries = []
             for new_filename in new_files:
-                file_url = os.path.join(folder_path, new_filename)
+                file_url = os.path.join(folder_path, new_filename.decode('utf8'))
 
                 # More than one file with the same name but different
                 # extension?
-                exts = [os.path.splitext(f)[1] for f in files if new_filename
-                        in f]
+                exts = [os.path.splitext(f)[1] for f in files
+                        if new_filename in f]
 
                 assert len(exts) > 0, "Couldn't find file extension for %s" % file_url
 
                 filepath = self.raw_alternative(file_url, exts)
 
                 try:
-                    self.import_file(MockMedia(
-                        filename=filepath, stream=open(filepath, "r")))
-                except Exception as e:
-                    print u"file: {0}  exception: {1}".format(f, e).encode('utf-8')
+                    entry = self.import_file(MockMedia(
+                        filename=filepath, stream=open(filepath, 'r')))
+                    added_entries.append(entry)
+                except Exception as exc:
+                    print u"Exception while importing file '{0}': {1}".format(f, exc)
                     continue
 
-
-    def find_file(self, file_base, exts):
+    def raw_alternative(self, file_base, exts):
         """
         Find the raw file if there exist one
 
@@ -130,13 +133,13 @@ class ImportCommand(object):
 
     def import_file(self, media):
         try:
-            media_type, media_manager = sniff_media(media)
+            media_type, media_manager = sniff_media(media, media.filename)
         except (InvalidFileType, FileTypeNotSupported) as e:
             print u"File error {0}: {1}".format(media.filename, repr(e)).encode("utf-8")
             return
         entry = self.db.MediaEntry()
         entry.media_type = unicode(media_type)
-        entry.title = unicode(os.path.splitext(media.filename)[0])
+        entry.title = unicode(os.path.basename(os.path.splitext(media.filename)[0]))
 
         entry.uploader = 1
         # Process the user's folksonomy "tags"
@@ -145,18 +148,12 @@ class ImportCommand(object):
         entry.generate_slug()
 
         task_id = unicode(uuid.uuid4())
-
         entry.queued_media_file = media.filename.split("/")
         entry.queued_task_id = task_id
 
         entry.save()
-
-        process_media = registry.tasks[ProcessMedia.name]
-        try:
-            process_media.apply_async( [unicode(entry.id)], {}, task_id=task_id)
-        except BaseException as exc:
-            mark_entry_failed(entry.id, exc)
-            raise
+        run_process_media(entry)
+        return entry
 
 
 if __name__ == "__main__":
@@ -164,3 +161,6 @@ if __name__ == "__main__":
         mg_app.db,
         mg_globals.global_config['storage:publicstore']['base_dir'])
     ic.handle()
+
+    print
+    print "Import finished"
