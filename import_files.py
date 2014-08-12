@@ -24,6 +24,7 @@ import uuid
 import mediagoblin
 from mediagoblin.app import MediaGoblinApp
 from mediagoblin import mg_globals
+
 if __name__ == "__main__":
     mg_dir = os.path.dirname(mediagoblin.__path__[0])
     if os.path.exists(mg_dir + "/mediagoblin_local.ini"):
@@ -46,6 +47,9 @@ from mediagoblin.storage import clean_listy_filepath
 from mediagoblin.submit.lib import run_process_media
 from mediagoblin.tools.text import convert_to_tag_list_of_dicts
 from mediagoblin.user_pages.lib import add_media_to_collection
+
+
+CACHE_DIR = 'mg_cache'
 
 
 class MockMedia():
@@ -77,8 +81,7 @@ class ImportCommand(object):
             if '/.' in top:
                 continue
             # Skip cache folders
-            if '_cache' in top:
-                print "cache skip", top
+            if CACHE_DIR + '/' in top:
                 continue
             if top == '.':
                 top = u''
@@ -91,10 +94,10 @@ class ImportCommand(object):
                 cleaned_top = u'/'.join(clean_listy_filepath(folder_path.split('/')))
             except Exception:
                 cleaned_top = top
-            new_folder = not os.path.exists(os.path.join('mg_cache', cleaned_top))
+            new_folder = not os.path.exists(os.path.join(CACHE_DIR, cleaned_top))
 
             if not new_folder:
-                print u"Skipping folder {0}".format(folder_path)
+                print u"Existing folder {0}".format(folder_path)
                 continue
             new_files = list(set(os.path.splitext(i)[0] for i in files))
             new_files.sort(reverse=True)

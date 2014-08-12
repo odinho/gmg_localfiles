@@ -22,16 +22,22 @@ from mediagoblin.storage import (
 from mediagoblin.storage.filestorage import BasicFileStorage
 
 import os
-import shutil
 import logging
-import urlparse
+
+
+CACHE_DIR = 'mg_cache'
 
 _log = logging.getLogger(__name__)
 
 def _is_cachefile(filepath):
-    if not isinstance(filepath, basestring):
-        filepath = filepath[-1]
-    return any(k in filepath for k in ['thumbnail', 'medium'])
+    if filepath and filepath[0] == CACHE_DIR:
+        return True
+    return any(k in filepath[-1] for k in ['thumbnail', 'medium'])
+
+def _ensure_in_cache_dir(filepath):
+    if filepath and filepath[0] == CACHE_DIR:
+        return filepath
+    return [CACHE_DIR] + list(filepath)
 
 class PersistentFileStorage(BasicFileStorage):
     """
@@ -43,24 +49,13 @@ class PersistentFileStorage(BasicFileStorage):
         Transform the given filepath into a local filesystem filepath.
         """
         if _is_cachefile(filepath) or force_cache:
-            filepath = clean_listy_filepath(list(filepath))
-            filepath.insert(0, "mg_cache")
+            filepath = _ensure_in_cache_dir(filepath)
 
-        return os.path.join(
-            self.base_dir, *filepath)
+        return super(type(self), self)._resolve_filepath(filepath)
 
     def file_url(self, filepath):
-        if not self.base_url:
-            raise NoWebServing(
-                "base_url not set, cannot provide file urls")
-
-        if _is_cachefile(filepath):
-            filepath = clean_listy_filepath(list(filepath))
-            filepath.insert(0, "mg_cache")
-
-        return urlparse.urljoin(
-            self.base_url,
-            '/'.join(filepath))
+        filepath = _ensure_in_cache_dir(filepath)
+        return super(type(self), self).file_url(filepath)
 
     def get_file(self, filepath, mode='r'):
         if _is_cachefile(filepath):
@@ -84,13 +79,11 @@ class PersistentFileStorage(BasicFileStorage):
         """
         Copy this file from locally to the storage system.
         """
-        # Make directories if necessary
-        if len(filepath) > 1:
-            directory = self._resolve_filepath(filepath[:-1], force_cache=True)
-            if not os.path.exists(directory):
-                os.makedirs(directory)
+        # Everything that mediagoblin possibly wants to create
+        # should go in the cache dir.
+        filepath = _ensure_in_cache_dir(filepath)
 
-        shutil.copy(filename, self.get_local_path(filepath))
+        super(type(self), self).copy_local_to_storage(filename, filepath)
 
 class PersistentStorageObjectWrapper():
     def __init__(self, storage_object, name=None, *args, **kwargs):
