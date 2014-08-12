@@ -75,6 +75,11 @@ class PersistentFileStorage(BasicFileStorage):
     def delete_dir(self, dirpath, recursive=False):
         return False
 
+    def file_exists(self, filepath):
+        if super(type(self), self).file_exists(filepath):
+            return True
+        return super(type(self), self).file_exists([CACHE_DIR] + list(filepath))
+
     def copy_local_to_storage(self, filename, filepath):
         """
         Copy this file from locally to the storage system.
