@@ -16,18 +16,15 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from mediagoblin.storage import (
-    clean_listy_filepath,
-    NoWebServing)
-from mediagoblin.storage.filestorage import BasicFileStorage
-
 import os
 import logging
 
+from mediagoblin.storage.filestorage import BasicFileStorage
+
 
 CACHE_DIR = 'mg_cache'
-
 _log = logging.getLogger(__name__)
+
 
 def _is_cachefile(filepath):
     if filepath and filepath[0] == CACHE_DIR:
@@ -71,7 +68,7 @@ class PersistentFileStorage(BasicFileStorage):
         # The expected file didn't exist. GMG probably gave
         # us ".jpg", so let's return ".JPG"
         fn, ext = os.path.splitext(filepath[-1])
-        filepath[-1] = fn + ext.upper()
+        filepath = filepath[:-1] + [fn + ext.upper()]
         path = super(type(self), self)._resolve_filepath(filepath)
         return path
 
