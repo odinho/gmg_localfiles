@@ -32,29 +32,52 @@ _log = logging.getLogger(__name__)
 def _is_cachefile(filepath):
     if filepath and filepath[0] == CACHE_DIR:
         return True
-    return any(k in filepath[-1] for k in ['thumbnail', 'medium'])
+    fn = filepath[-1].lower()
+    return any(k in fn for k in ['.thumbnail.', '.medium.',
+                                 '.nef.jpg', '.cr2.jpg'])
 
 def _ensure_in_cache_dir(filepath):
     if filepath and filepath[0] == CACHE_DIR:
         return filepath
     return [CACHE_DIR] + list(filepath)
 
+
 class PersistentFileStorage(BasicFileStorage):
     """
     Local filesystem implementation of storage API that doesn't delete files
     """
 
-    def _resolve_filepath(self, filepath, force_cache=False):
+    def _resolve_filepath(self, filepath):
         """
         Transform the given filepath into a local filesystem filepath.
         """
-        if _is_cachefile(filepath) or force_cache:
+        if _is_cachefile(filepath):
             filepath = _ensure_in_cache_dir(filepath)
+            path = super(type(self), self)._resolve_filepath(filepath)
+            return path
 
-        return super(type(self), self)._resolve_filepath(filepath)
+        # Sadly, since MediaGoblin always expect the file extension
+        # to be lower case (it renames MyPic.JPG to MyPic.jpg),
+        # we cannot be sure about what path we should return.
+        #
+        # So we have to check if the file exists on disk,
+        # if it does not we should use the upper case
+        # version of the name (if it's neither, you are
+        # on your own).
+        path = super(type(self), self)._resolve_filepath(filepath)
+        if os.path.exists(path):
+            return path
+
+        # The expected file didn't exist. GMG probably gave
+        # us ".jpg", so let's return ".JPG"
+        fn, ext = os.path.splitext(filepath[-1])
+        filepath[-1] = fn + ext.upper()
+        path = super(type(self), self)._resolve_filepath(filepath)
+        return path
 
     def file_url(self, filepath):
-        filepath = _ensure_in_cache_dir(filepath)
+        if _is_cachefile(filepath):
+            filepath = _ensure_in_cache_dir(filepath)
         return super(type(self), self).file_url(filepath)
 
     def get_file(self, filepath, mode='r'):
@@ -69,16 +92,10 @@ class PersistentFileStorage(BasicFileStorage):
                 open(self._resolve_filepath(filepath), mode))
 
     def delete_file(self, filepath):
-        #os.remove(self._resolve_filepath(filepath))
         _log.info(u'Not removing {0} as requested.'.format(self._resolve_filepath(filepath)))
 
     def delete_dir(self, dirpath, recursive=False):
         return False
-
-    def file_exists(self, filepath):
-        if super(type(self), self).file_exists(filepath):
-            return True
-        return super(type(self), self).file_exists([CACHE_DIR] + list(filepath))
 
     def copy_local_to_storage(self, filename, filepath):
         """
@@ -86,9 +103,13 @@ class PersistentFileStorage(BasicFileStorage):
         """
         # Everything that mediagoblin possibly wants to create
         # should go in the cache dir.
-        filepath = _ensure_in_cache_dir(filepath)
+        if _is_cachefile(filepath):
+            filepath = _ensure_in_cache_dir(filepath)
+            super(type(self), self).copy_local_to_storage(filename, filepath)
+        else:
+            _log.debug('Refusing to copy non-cache file path {}.'
+                       ''.format(filepath))
 
-        super(type(self), self).copy_local_to_storage(filename, filepath)
 
 class PersistentStorageObjectWrapper():
     def __init__(self, storage_object, name=None, *args, **kwargs):

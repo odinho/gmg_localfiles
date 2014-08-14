@@ -113,14 +113,14 @@ class ImportCommand(object):
 
                 assert len(exts) > 0, "Couldn't find file extension for %s" % file_url
 
-                filepath = self.raw_alternative(file_url, exts)
+                path = self.raw_alternative(file_url, exts)
 
                 try:
                     entry = self.import_file(MockMedia(
-                        filename=filepath, stream=open(filepath, 'r')))
+                        filename=path, stream=open(path, 'r')))
                     added_entries.append(entry)
                 except Exception as exc:
-                    print u"Exception while importing file '{0}': {1}".format(f, exc)
+                    print u"[imp] Exception while importing file '{0}': {1}".format(path, exc)
                     continue
             self.add_to_collection(u'roll:{}'.format(folder_path), added_entries)
 
