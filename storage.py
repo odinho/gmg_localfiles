@@ -68,7 +68,7 @@ class PersistentFileStorage(BasicFileStorage):
         # The expected file didn't exist. GMG probably gave
         # us ".jpg", so let's return ".JPG"
         fn, ext = os.path.splitext(filepath[-1])
-        filepath = filepath[:-1] + [fn + ext.upper()]
+        filepath = list(filepath[:-1]) + [fn + ext.upper()]
         path = super(type(self), self)._resolve_filepath(filepath)
         return path
 
