@@ -77,6 +77,7 @@ class ImportCommand(object):
         os.chdir(self.base_dir)
 
         for top, dirs, files in os.walk('.', followlinks=True):
+            dirs.sort()
             # Skip hidden folders
             if '/.' in top:
                 continue
