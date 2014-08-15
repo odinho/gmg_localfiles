@@ -21,24 +21,26 @@ import logging
 
 from mediagoblin import processing
 
+from storage import _is_cachefile, _ensure_in_cache_dir
+
+
 _log = logging.getLogger(__name__)
 
 
 # Monkeypatch create_pub_filepath to not clean the original files, and to
 # rather use queued_media_file instead of hardcoded path.
-from storage import _is_cachefile
-from mediagoblin.storage import clean_listy_filepath
 def monkey_create_pub_filepath(entry, filename):
-    if _is_cachefile(filename):
-        filepath = clean_listy_filepath(entry.queued_media_file)
-    else:
-        filepath = list(entry.queued_media_file)
+    filepath = list(entry.queued_media_file)
+    if _is_cachefile([filename]):
+        filepath[-1] = filename
+        filepath = _ensure_in_cache_dir(filepath)
 
-    filepath[-1] = filename
     return filepath
 processing.create_pub_filepath = monkey_create_pub_filepath
 
 
+# TODO This does not work as written with raw files since
+#      that media type creates its own FilenameBuilder.
 class PreservingFilenameBuilder(processing.FilenameBuilder):
     def __init__(self, path):
         """Initialize a builder from an original file path."""
@@ -49,7 +51,7 @@ class PreservingFilenameBuilder(processing.FilenameBuilder):
         basename_len = (self.MAX_FILENAME_LENGTH -
                         len(fmtstr.format(basename='', ext=self.ext)))
         ext = self.ext
-        if _is_cachefile(fmtstr):
+        if _is_cachefile([fmtstr]):
             ext = ext.lower()
         return fmtstr.format(basename=self.basename[:basename_len],
                              ext=ext)

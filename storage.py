@@ -18,7 +18,9 @@
 
 import os
 import logging
+import urlparse
 
+from mediagoblin.storage import NoWebServing
 from mediagoblin.storage.filestorage import BasicFileStorage
 
 
@@ -47,10 +49,16 @@ class PersistentFileStorage(BasicFileStorage):
     def _resolve_filepath(self, filepath):
         """
         Transform the given filepath into a local filesystem filepath.
+
+        Differences from filestorage:
+          - If filename looks like a cache file, it will ensure
+            that the path returned is in cache directory.
+          - Check if the file exists, if it doesn't it will
+            try using an uppercase extension.
         """
         if _is_cachefile(filepath):
             filepath = _ensure_in_cache_dir(filepath)
-            path = super(type(self), self)._resolve_filepath(filepath)
+            path = os.path.join(self.base_dir, *filepath)
             return path
 
         # Sadly, since MediaGoblin always expect the file extension
@@ -61,7 +69,7 @@ class PersistentFileStorage(BasicFileStorage):
         # if it does not we should use the upper case
         # version of the name (if it's neither, you are
         # on your own).
-        path = super(type(self), self)._resolve_filepath(filepath)
+        path = os.path.join(self.base_dir, *filepath)
         if os.path.exists(path):
             return path
 
@@ -69,13 +77,24 @@ class PersistentFileStorage(BasicFileStorage):
         # us ".jpg", so let's return ".JPG"
         fn, ext = os.path.splitext(filepath[-1])
         filepath = list(filepath[:-1]) + [fn + ext.upper()]
-        path = super(type(self), self)._resolve_filepath(filepath)
+        path = os.path.join(self.base_dir, *filepath)
         return path
 
     def file_url(self, filepath):
+        """
+        Takes filepath returns URL
+
+        Differences from filestorage are two:
+          - If the filepath looks like a cachefile, it'll use cache dir
+          - It won't "clean" the filename of non-ascii letters
+        """
+        if not self.base_url:
+            raise NoWebServing(
+                "base_url not set, cannot provide file urls")
         if _is_cachefile(filepath):
             filepath = _ensure_in_cache_dir(filepath)
-        return super(type(self), self).file_url(filepath)
+
+        return urlparse.urljoin(self.base_url, '/'.join(filepath))
 
     def get_file(self, filepath, mode='r'):
         if _is_cachefile(filepath):
