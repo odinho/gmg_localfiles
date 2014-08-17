@@ -42,10 +42,10 @@ if __name__ == "__main__":
     setup_celery_app(mg_globals.app_config, \
         mg_globals.global_config, force_celery_always_eager=True)
 
+import sqlalchemy.exc
 from mediagoblin.db.base import Session
 from mediagoblin.media_types import FileTypeNotSupported
 from mediagoblin.media_types import get_media_type_and_manager
-from mediagoblin.storage import clean_listy_filepath
 from mediagoblin.submit.lib import run_process_media
 from mediagoblin.tools.text import convert_to_tag_list_of_dicts
 from mediagoblin.user_pages.lib import add_media_to_collection
@@ -93,13 +93,11 @@ class ImportCommand(object):
             #        .get_or_create(path=os.path.normpath(top) + "/",
             #                defaults={'name': os.path.basename(top)})
             folder_path = os.path.normpath(top.decode('utf8'))
-            try:
-                cleaned_top = u'/'.join(clean_listy_filepath(folder_path.split('/')))
-            except Exception:
-                cleaned_top = top
-            new_folder = not os.path.exists(os.path.join(CACHE_DIR, cleaned_top))
+            new_folder = not os.path.exists(os.path.join(CACHE_DIR, folder_path))
 
-            if not new_folder:
+            if new_folder:
+                print u"Processing folder {0}".format(folder_path)
+            else:
                 print u"Existing folder {0}".format(folder_path)
                 continue
 
@@ -114,15 +112,30 @@ class ImportCommand(object):
                         print "skip", fn, ext
                         continue
                 path = os.path.join(folder_path, new_filename.decode('utf8'))
+                second_exception = False
 
-                try:
-                    entry = self.import_file(MockMedia(
-                        filename=path, stream=open(path, 'r')))
-                    if entry:
-                        added_entries.append(entry)
-                except Exception as exc:
-                    print u"[imp] Exception while importing file '{0}': {1}".format(path, exc)
-                    continue
+                while True:
+                    try:
+                        entry = self.import_file(MockMedia(
+                            filename=path, stream=open(path, 'r')))
+                        break
+                    except (sqlalchemy.exc.InvalidRequestError,
+                            sqlalchemy.exc.OperationalError) as exc:
+                        if not second_exception:
+                            print (u"[imp] Exception while importing file "
+                                    "'{0}': {1}. Trying again.".format(path, repr(exc)))
+                            second_exception = True
+                        else:
+                            print u"[imp] Giving up on {0}.".format(path)
+                            print u"Entries is this folder {0}: {1}".format(
+                                folder_path, [e.id for e in added_entries])
+                            raise
+                    except Exception as exc:
+                        print(u"[imp] Exception while importing "
+                               "file '{0}': {1}.".format(path, repr(exc)))
+                        break
+                if entry:
+                    added_entries.append(entry)
             self.add_to_collection(u'roll:{}'.format(folder_path), added_entries)
 
     def add_to_collection(self, collection_title, entries):
@@ -167,8 +180,13 @@ class ImportCommand(object):
         entry.queued_media_file = media.filename.split("/")
         entry.queued_task_id = task_id
 
-        entry.save()
-        run_process_media(entry)
+        try:
+            entry.save()
+            run_process_media(entry)
+            Session.commit()
+        except Exception:
+            Session.rollback()
+            raise
         return entry
 
 
