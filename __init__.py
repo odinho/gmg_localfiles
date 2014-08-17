@@ -21,6 +21,7 @@ import logging
 
 from mediagoblin import processing
 
+from . import ratings
 from .storage import _is_cachefile, _ensure_in_cache_dir
 
 
@@ -64,4 +65,5 @@ def setup_plugin():
 
 hooks = {
     'setup': setup_plugin,
+    'add_media_to_collection': ratings.media_added_to_collection,
     }

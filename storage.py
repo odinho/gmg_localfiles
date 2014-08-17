@@ -48,6 +48,16 @@ class PersistentFileStorage(BasicFileStorage):
     Local filesystem implementation of storage API that doesn't delete files
     """
 
+    def _cachefile_to_original_filepath(self, filepath):
+        """
+        Custom function taking a cache file and returns original filepath.
+        """
+        if CACHE_DIR == filepath[0]:
+            filepath = filepath[1:]
+        filename = self._re_raw_from_preview.sub(r'\1.\2', filepath[-1])
+        return list(filepath[:-1]) + [filename]
+    _re_raw_from_preview = re.compile(r'^(.*)\.(nef|cr2)(\.jpg)$', re.I)
+
     def _resolve_filepath(self, filepath):
         """
         Transform the given filepath into a local filesystem path.
@@ -108,7 +118,7 @@ class PersistentFileStorage(BasicFileStorage):
         mode = mode.replace("w", "r")
         # Grab and return the file in the mode specified
         return PersistentStorageObjectWrapper(
-                open(self._resolve_filepath(filepath), mode))
+            open(self._resolve_filepath(filepath), mode))
 
     def delete_file(self, filepath):
         _log.info(u'Not removing {0} as requested.'.format(

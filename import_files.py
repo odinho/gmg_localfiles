@@ -52,6 +52,7 @@ from mediagoblin.submit.lib import run_process_media
 from mediagoblin.tools.text import convert_to_tag_list_of_dicts
 from mediagoblin.user_pages.lib import add_media_to_collection
 
+from . import ratings
 
 
 CACHE_DIR = 'mg_cache'
@@ -142,6 +143,10 @@ class ImportCommand(object):
                 if not entry:
                     continue
                 added_entries.append(entry)
+                rating = ratings.get_rating(path)
+                if rating:
+                    self.add_to_collection('rating:{}'.format(rating),
+                                           [entry])
             self.add_to_collection(u'roll:{}'.format(folder_path),
                                    added_entries)
 
