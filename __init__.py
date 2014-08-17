@@ -21,7 +21,7 @@ import logging
 
 from mediagoblin import processing
 
-from storage import _is_cachefile, _ensure_in_cache_dir
+from .storage import _is_cachefile, _ensure_in_cache_dir
 
 
 _log = logging.getLogger(__name__)
@@ -61,6 +61,7 @@ processing.FilenameBuilder = PreservingFilenameBuilder
 def setup_plugin():
     _log.info('LocalFiles plugin set up!')
 
+
 hooks = {
-    'setup': setup_plugin
+    'setup': setup_plugin,
     }

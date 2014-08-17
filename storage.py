@@ -16,8 +16,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
 import logging
+import os
+import re
 import urlparse
 
 from mediagoblin.storage import NoWebServing
@@ -35,6 +36,7 @@ def _is_cachefile(filepath):
     return any(k in fn for k in ['.thumbnail.', '.medium.',
                                  '.nef.jpg', '.cr2.jpg'])
 
+
 def _ensure_in_cache_dir(filepath):
     if filepath and filepath[0] == CACHE_DIR:
         return filepath
@@ -48,7 +50,7 @@ class PersistentFileStorage(BasicFileStorage):
 
     def _resolve_filepath(self, filepath):
         """
-        Transform the given filepath into a local filesystem filepath.
+        Transform the given filepath into a local filesystem path.
 
         Differences from filestorage:
           - If filename looks like a cache file, it will ensure
@@ -100,7 +102,8 @@ class PersistentFileStorage(BasicFileStorage):
         if _is_cachefile(filepath):
             return super(PersistentFileStorage, self).get_file(filepath, mode)
         if not os.path.exists(self._resolve_filepath(filepath)):
-            return PersistentStorageObjectWrapper(None, self._resolve_filepath(filepath))
+            return PersistentStorageObjectWrapper(
+                None, self._resolve_filepath(filepath))
 
         mode = mode.replace("w", "r")
         # Grab and return the file in the mode specified
@@ -108,7 +111,8 @@ class PersistentFileStorage(BasicFileStorage):
                 open(self._resolve_filepath(filepath), mode))
 
     def delete_file(self, filepath):
-        _log.info(u'Not removing {0} as requested.'.format(self._resolve_filepath(filepath)))
+        _log.info(u'Not removing {0} as requested.'.format(
+            self._resolve_filepath(filepath)))
 
     def delete_dir(self, dirpath, recursive=False):
         return False

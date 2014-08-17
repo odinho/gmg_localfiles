@@ -30,17 +30,19 @@ from mediagoblin import mg_globals
 if __name__ == "__main__":
     mg_dir = os.path.dirname(mediagoblin.__path__[0])
     if os.path.exists(mg_dir + "/mediagoblin_local.ini"):
-      config_file = mg_dir + "/mediagoblin_local.ini"
+        config_file = mg_dir + "/mediagoblin_local.ini"
     elif os.path.exists(mg_dir + "/mediagoblin.ini"):
-      config_file = mg_dir + "/mediagoblin.ini"
+        config_file = mg_dir + "/mediagoblin.ini"
     else:
-      raise Exception("Couldn't find mediagoblin.ini")
+        raise Exception("Couldn't find mediagoblin.ini")
 
     mg_app = MediaGoblinApp(config_file, setup_celery=True)
 
     from mediagoblin.init.celery import setup_celery_app
-    setup_celery_app(mg_globals.app_config, \
-        mg_globals.global_config, force_celery_always_eager=True)
+    setup_celery_app(
+        mg_globals.app_config,
+        mg_globals.global_config,
+        force_celery_always_eager=True)
 
 import sqlalchemy.exc
 from mediagoblin.db.base import Session
@@ -49,6 +51,7 @@ from mediagoblin.media_types import get_media_type_and_manager
 from mediagoblin.submit.lib import run_process_media
 from mediagoblin.tools.text import convert_to_tag_list_of_dicts
 from mediagoblin.user_pages.lib import add_media_to_collection
+
 
 
 CACHE_DIR = 'mg_cache'
@@ -93,7 +96,8 @@ class ImportCommand(object):
             #        .get_or_create(path=os.path.normpath(top) + "/",
             #                defaults={'name': os.path.basename(top)})
             folder_path = os.path.normpath(top.decode('utf8'))
-            new_folder = not os.path.exists(os.path.join(CACHE_DIR, folder_path))
+            new_folder = not os.path.exists(
+                os.path.join(CACHE_DIR, folder_path))
 
             if new_folder:
                 print u"Processing folder {0}".format(folder_path)
@@ -123,7 +127,8 @@ class ImportCommand(object):
                             sqlalchemy.exc.OperationalError) as exc:
                         if not second_exception:
                             print (u"[imp] Exception while importing file "
-                                    "'{0}': {1}. Trying again.".format(path, repr(exc)))
+                                   "'{0}': {1}. Trying again."
+                                   "".format(path, repr(exc)))
                             second_exception = True
                         else:
                             print u"[imp] Giving up on {0}.".format(path)
@@ -132,18 +137,20 @@ class ImportCommand(object):
                             raise
                     except Exception as exc:
                         print(u"[imp] Exception while importing "
-                               "file '{0}': {1}.".format(path, repr(exc)))
+                              "file '{0}': {1}.".format(path, repr(exc)))
                         break
-                if entry:
-                    added_entries.append(entry)
-            self.add_to_collection(u'roll:{}'.format(folder_path), added_entries)
+                if not entry:
+                    continue
+                added_entries.append(entry)
+            self.add_to_collection(u'roll:{}'.format(folder_path),
+                                   added_entries)
 
     def add_to_collection(self, collection_title, entries):
         if not entries:
             return
-        collection = self.db.Collection.query.filter_by(
-                               creator=1,
-                               title=collection_title).first()
+        collection = (self.db.Collection.query
+                      .filter_by(creator=1, title=collection_title)
+                      .first())
         if not collection:
             collection = self.db.Collection()
             collection.title = collection_title
@@ -157,18 +164,20 @@ class ImportCommand(object):
             Session.commit()
         except Exception as exc:
             print (u"Could add media to collection {}: {}"
-                    "".format(collection_title, exc))
+                   "".format(collection_title, exc))
             Session.rollback()
 
     def import_file(self, media):
         try:
-            media_type, media_manager = get_media_type_and_manager(media.filename)
+            media_type, media_manager = (
+                get_media_type_and_manager(media.filename))
         except FileTypeNotSupported:
             print u"File type not supported: {0}".format(media.filename)
             return
         entry = self.db.MediaEntry()
         entry.media_type = unicode(media_type)
-        entry.title = unicode(os.path.basename(os.path.splitext(media.filename)[0]))
+        entry.title = unicode(
+            os.path.basename(os.path.splitext(media.filename)[0]))
 
         entry.uploader = 1
         # Process the user's folksonomy "tags"
