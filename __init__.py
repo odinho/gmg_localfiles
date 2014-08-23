@@ -64,6 +64,7 @@ def setup_plugin():
 
 
 hooks = {
-    'setup': setup_plugin,
     'add_media_to_collection': ratings.media_added_to_collection,
+    'remove_media_from_collection': ratings.media_removed_from_collection,
+    'setup': setup_plugin,
     }
