@@ -108,14 +108,19 @@ class ImportCommand(object):
 
             added_entries = []
             for new_filename in sorted(files, reverse=True):
-                # More than one file with the same name but different
-                # extension?
                 fn, ext = os.path.splitext(new_filename)
-                if ext.lower() != '.nef':
-                    if any(fn + ext in files for ext in ['.nef', '.NEF']):
-                        # Skip the non-nef file
-                        print "skip", fn, ext
-                        continue
+                if fn.lower().endswith('.nef'):
+                    # If the file name *without the extensions* ends with .nef,
+                    # we are probably dealing with some product of the nef.
+                    # Either the .nef.xmp, or the extracted .nef.jpg.
+                    # Let's just ignore it.
+                    continue
+                if ext.lower() == '.nef' and fn + '.jpg' in files:
+                    # If we're a nef file, and we have a similar named
+                    # jpg in the same place.  We'll prefer the jpg, because
+                    # it might be a processed raw image.
+                    print "Skipping {}, found jpeg candidate.".format(new_filename)
+                    continue
                 path = os.path.join(folder_path, new_filename.decode('utf8'))
                 second_exception = False
 
